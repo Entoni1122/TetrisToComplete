@@ -3,7 +3,6 @@
 #include <string.h>
 #include "Tetris.h"
 
-
 #pragma region TetrominoCreations
 
 
@@ -262,9 +261,17 @@ const int *tetrominoTypes[7][4] =
 Sound _onPointScoredAudio;
 Sound _onLineDeletedAudio;
 Music _BackGroundMusic;
+
 //Var for game
 int endgame = 0;
 int _score = 0;
+
+int vfxPositionX;
+int vfxPositionY;
+int VFXEnable;
+
+
+
 
 void drawTetromino(const Color currentColor, const int startOffsetX, const int startOffsetY, const int tetrominoStartX, const int tetrominoStartY, const int *tetromino)
 {
@@ -296,6 +303,13 @@ void ResetLines(int startLineY)
                 stage[offset] = 0;
                 PlaySound(_onLineDeletedAudio);
                 _score += 10;
+
+                VFXEnable = 1;
+
+
+                vfxPositionX = x;
+                vfxPositionX = y;
+
             }
         }
     }   
@@ -341,17 +355,8 @@ int main(int argc, char** argv, char** environ)
     LoadAllAudio();
     PlayMusicStream(_BackGroundMusic);
 
-    const int windowWidth = 600; 
-    const int windowHeight = 700;
-
-    const int startOffsetX = (windowWidth / 2) - ((STAGE_WIDTH * TILE_SIZE) / 2);
-    const int startOffsetY = (windowHeight / 2) - ((STAGE_HEIGHT * TILE_SIZE) / 2);
-
-    const int tetrominoStartX = STAGE_WIDTH / 2;
-    const int tetrominoStartY = 0;
-
-    int currentTetrominoX = tetrominoStartX;
-    int currentTetrominoY = tetrominoStartY;
+    int currentTetrominoX = TETROMINOSTARTX;
+    int currentTetrominoY = TETROMINOSTARTY;
 
     time_t unixTime;
 
@@ -366,8 +371,17 @@ int main(int argc, char** argv, char** environ)
     float timeToMoveTetrominoDown = moveTetrominoDownTimer;
     int currentColor = GetRandomValue(0, 7);
 
-    InitWindow(windowWidth, windowHeight, "Taitris");
+    InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Taitris");
     SetTargetFPS(60);
+     
+    const float timer = 2;
+    float time = timer;
+    float gravity = 5;
+    float xoff = 2;
+    float xoff01 = -2;
+
+    int randomSizeVFX;
+
 
     while(!WindowShouldClose())
     {
@@ -432,12 +446,17 @@ int main(int argc, char** argv, char** environ)
                         }
                     }
                 }
+                VFXEnable = 1;
+                vfxPositionX = (currentTetrominoX + 1) * TILE_SIZE + STARTOFFSETX;
+                vfxPositionY = currentTetrominoY * TILE_SIZE + STARTOFFSETY;
+                randomSizeVFX = GetRandomValue(10,20);
                 DeleteLines();
+
                 PlaySound(_onPointScoredAudio);
                 _score++;       
 
-                currentTetrominoX = tetrominoStartX;
-                currentTetrominoY = tetrominoStartY;
+                currentTetrominoX = TETROMINOSTARTX;
+                currentTetrominoY = TETROMINOSTARTY;
 
                 currentTetrominoType = GetRandomValue(0, 6);
                 currentRotation = 0;
@@ -446,12 +465,10 @@ int main(int argc, char** argv, char** environ)
                 {
                     moveTetrominoDownTimer -= 0.1f;
                 }
-
                 if(CheckCollision(currentTetrominoX,currentTetrominoY+1,tetrominoTypes[currentTetrominoType][currentRotation]))
                 {
                     endgame = 1;
                 }
-
             }
         }
         }
@@ -492,19 +509,39 @@ int main(int argc, char** argv, char** environ)
 
                 if(stage[offset] != 0)
                 {
-                    DrawRectangle(x * TILE_SIZE + startOffsetX, y * TILE_SIZE + startOffsetY, TILE_SIZE, TILE_SIZE, colorTypes[color-1]);
+                    DrawRectangle(x * TILE_SIZE + STARTOFFSETX, y * TILE_SIZE + STARTOFFSETY, TILE_SIZE, TILE_SIZE, colorTypes[color-1]);
                 }
 
-                DrawRectangleLines(x * TILE_SIZE + startOffsetX, y * TILE_SIZE + startOffsetY, TILE_SIZE, TILE_SIZE, BLACK);
+                DrawRectangleLines(x * TILE_SIZE + STARTOFFSETX, y * TILE_SIZE + STARTOFFSETY, TILE_SIZE, TILE_SIZE, BLACK);
             }
         }
-        drawTetromino(colorTypes[currentColor],startOffsetX, startOffsetY, currentTetrominoX, currentTetrominoY, tetrominoTypes[currentTetrominoType][currentRotation]);
+        drawTetromino(colorTypes[currentColor],STARTOFFSETX, STARTOFFSETY, currentTetrominoX, currentTetrominoY, tetrominoTypes[currentTetrominoType][currentRotation]);
         DrawText(TextFormat("Score : %d",_score),5, 10,FONT_SIZE,WHITE);
         DrawText(TextFormat("Tetro Speed : %f",moveTetrominoDownTimer),5, 60,20,WHITE);
-
+        //VFX
+        if(VFXEnable)
+        {
+            DrawRectangle(vfxPositionX + xoff,vfxPositionY + 20,randomSizeVFX,randomSizeVFX,BLUE);
+            DrawRectangle(vfxPositionX + xoff01,vfxPositionY + 15,randomSizeVFX,randomSizeVFX,YELLOW);
+            DrawRectangle(vfxPositionX + xoff01 - 20,vfxPositionY + 10,randomSizeVFX,randomSizeVFX,PURPLE);
+            DrawRectangle(vfxPositionX + xoff + 20,vfxPositionY + 30,randomSizeVFX,randomSizeVFX,ORANGE);
+            xoff += GetFrameTime()  * 40;
+            xoff01 -= GetFrameTime()  * 40;
+            time -= GetFrameTime();
+            vfxPositionY -= gravity;
+            gravity -= GetFrameTime() * 8; 
+            if(time <= 0)
+            {
+                gravity = 5;
+                VFXEnable = 0;
+                time = timer;
+                xoff = 2;
+                xoff01 = -2;
+            }
+        }
         if(endgame == 1)
         {
-            DrawText(TextFormat("You Lose : press enter to restart"),10, windowHeight * 0.5f,50,BLACK);
+            DrawText(TextFormat("You Lose : press enter to restart"),10, WINDOW_HEIGHT * 0.5f,50,BLACK);
         }
 
         EndDrawing();
